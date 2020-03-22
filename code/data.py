@@ -128,7 +128,7 @@ def load_data(args,valid_set_is_replicated):
 		else:
 			untiled_valid_idx,valid_idx,train_idx=numpy.array([]),numpy.array([]),random_index
 
-	train_sampler = SubsetRandomSampler(train_itoutdx)
+	train_sampler = SubsetRandomSampler(train_idx)
 	valid_sampler = SubsetRandomSampler(valid_idx)
 	untiled_valid_sampler = SubsetRandomSampler(untiled_valid_idx)
 
@@ -139,6 +139,10 @@ def load_data(args,valid_set_is_replicated):
 
 	data_valid_untiled =  torch.utils.data.DataLoader(valid,batch_size=batch_test,sampler=untiled_valid_sampler,num_workers=int(workers))
 	data_test =  torch.utils.data.DataLoader(test,batch_size=batch_test,shuffle=False,num_workers=int(workers))
+
+	if not args.use_valid_set:
+		total_train_data+=total_valid_data
+		total_valid_data = 0
 
 	return data_train,data_valid,data_valid_untiled,data_test,[total_train_data,total_test_data,total_valid_data,n_classes]
 

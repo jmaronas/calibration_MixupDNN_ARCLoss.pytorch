@@ -16,7 +16,7 @@ torch.manual_seed(seed=1)
 torch.backends.cudnn.benchmark=True
 
 #mine
-from networks import CalibIdea_NoBins,CalibIdea_Bins
+from networks import wrappedNET
 from data import load_data,batch_test,batch_train
 from network_config import load_network
 from utils import parse_args_baseline, compute_calibration_measures
@@ -34,6 +34,7 @@ total_train_data,total_test_data,total_valid_data,n_classes = data_stats
 
 pretrained = True if args.dataset =='birds' or args.dataset=='cars' else False #we use pretrained models on imagenet
 net,params=load_network(args.model_net,pretrained,args.n_gpu,n_classes=n_classes,dropout=args.dropout)
+net=wrappedNET(net)
 net.cuda()
 
 #usefull variables to monitor calibration error
@@ -50,17 +51,19 @@ bins_for_eval=15
 
 best_test=1e+14
 valid_name = './checkpoint/validation/' if args.use_valid_set else './checkpoint/test/'
-model_log_dir=os.path.join(valid_name,'baseline',dataset,,networkname+"_drop"+str(args.dropout))
+model_log_dir=os.path.join(valid_name,'baseline',args.dataset,args.model_net+"_drop"+str(args.dropout))
+model_log_dir+="/" # need this to solve small bug in my library
 
 try:
 	os.makedirs(model_log_dir)
 except:
-	raise Exception("This directory already exists")
+	if not args.DEBUG:
+		raise Exception("This directory already exists")
 
 add_experiment_notfinished(model_log_dir)
 logging.basicConfig(filename=os.path.join(model_log_dir,'train.log'),level=logging.INFO)
-logging.info("Logger for model: {} calibration error measured with {} bins".format(networkname+"_drop"+str(args.dropout),bins))
-logging.info("Batch size train {} total train {} total valid {} total test {} ".format(batch_size,total_train_data,total_valid_data,total_test_data))
+logging.info("Logger for model: {} calibration error measured with {} bins".format(args.model_net+"_drop"+str(args.dropout),bins_for_eval))
+logging.info("Batch size train {} total train {} total valid {} total test {} ".format(batch_train,total_train_data,total_valid_data,total_test_data))
 
 #Stochastic Gradient Descent parameters and stuff
 num_epochs,lr_init,wd,lr_scheduler = load_SGD_params(args.model_net,args.dataset)
@@ -71,7 +74,7 @@ for ep in range(num_epochs):
 	random_lr=lr_scheduler(lr_init,ep+1,num_epochs)
 	SGD_fc=torch.optim.SGD(parameters_fc,lr=random_lr,momentum=0.9,weight_decay=wd)
 	conv_lr=random_lr/10. if ep > -1 else 0.0
-	if dataset=='birds' or dataset=='cars':
+	if args.dataset=='birds' or args.dataset=='cars':
 		SGD_conv=torch.optim.SGD(parameters_conv,lr=conv_lr,momentum=0.9,weight_decay=wd)	
 		SGD=[SGD_conv,SGD_fc]
 	else:
@@ -81,7 +84,7 @@ for ep in range(num_epochs):
 	current_t=time.time()
 
 
-	for idx,(x,t) in enumerate(data_train):
+	for idx,(x,t) in enumerate(train_loader):
 
 		x,t=x.cuda(),t.cuda()
 
@@ -103,12 +106,12 @@ for ep in range(num_epochs):
 		#to monitor calibration error
 		predictions_train[idx*batch_train:idx*batch_train+batch_train,:]=out.data.cpu()
 		labels_train[idx*batch_train:idx*batch_train+batch_train]=t.data.cpu()
-		print('| Epoch [{}/{}] Iter[{:.0f}/{:.0f}]\t\t Loss: {:.3f}'.format(ep+1,num_epochs,total_batch,float(len(train_idx))/batch_size,cost.data),end="\r")
+		print('| Epoch [{}/{}] Iter[{:.0f}/{:.0f}]\t\t Loss: {:.3f}'.format(ep+1,num_epochs,total_batch,len(train_loader),cost.data),end="\r")
 		
 	print("\n")
 	with torch.no_grad():
 
-		for idx,(x,t) in enumerate(data_valid):
+		for idx,(x,t) in enumerate(valid_loader):
 
 			x,t=x.cuda(),t.cuda()
 			out=net.forward_test(x)
@@ -117,7 +120,7 @@ for ep in range(num_epochs):
 			predictions_valid[idx*batch_test:idx*batch_test+batch_test,:]=out.data.cpu()
 			labels_valid[idx*batch_test:idx*batch_test+batch_test]=t.data.cpu()
 
-		for idx,(x,t) in enumerate(data_test):
+		for idx,(x,t) in enumerate(test_loader):
 			x,t=x.cuda(),t.cuda()
 			out=net.forward_test(x)
 			MC_test+=net.classification_error(out,t)
@@ -128,9 +131,12 @@ for ep in range(num_epochs):
 		'''
 		Monitoring Calibration Error
 		'''
-		ECEtrain,MCEtrain,BRIERtrain,NNLtrain,all_stats_train,bins_stats_train=compute_calibration_measures(predictions_train,labels_train,apply_softmax=True,bins=bins_for_eval)
-		ECEtest,MCEtest,BRIERtest,NNLtest,all_stats_test,bins_stats_test=compute_calibration_measures(predictions_test,labels_test,apply_softmax=True,bins=bins_for_eval)
-		ECEvalid,MCEvalid,BRIERvalid,NNLvalid,all_stats_valid,bins_stats_valid=compute_calibration_measures(predictions_valid,labels_valid,apply_softmax=True,bins=bins_for_eval)
+		ECEtrain,MCEtrain,BRIERtrain,NNLtrain=compute_calibration_measures(predictions_train,labels_train,apply_softmax=True,bins=bins_for_eval)
+		ECEtest,MCEtest,BRIERtest,NNLtest=compute_calibration_measures(predictions_test,labels_test,apply_softmax=True,bins=bins_for_eval)
+		ECEvalid,MCEvalid,BRIERvalid,NNLvalid=[0.0]*4
+		if args.use_valid_set:
+			ECEvalid,MCEvalid,BRIERvalid,NNLvalid=compute_calibration_measures(predictions_valid,labels_valid,apply_softmax=True,bins=bins_for_eval)
+
 		'''variables to display'''
 		train_error=float(MC_train)/total_train*100
 		valid_error=float(MC_valid)/total_valid*100 if args.use_valid_set else 0
@@ -138,7 +144,7 @@ for ep in range(num_epochs):
 		CE_loss*=1/total_batch
 
 
-	print("|| Epoch {} took {:.1f} minutes LR: {:.4f} \tLossCE {:.5f} LossSSE {:.5f}\n"
+	print("|| Epoch {} took {:.1f} minutes LR: {:.4f} \tLossCE {:.5f} \n"
 
                "| Accuracy statistics:  Err train:{:.3f}  Err valid:{:.3f}  Err test:{:.3f} \n"
 
@@ -147,12 +153,12 @@ for ep in range(num_epochs):
                "| Calibration valid: ECE:{:.5f} MCE:{:.3f} BRIER:{:.3f} NNL:{:.5f} \n"
 	       
                "| Calibration test: ECE:{:.5f} MCE:{:.5f} BRIER:{:.5f}  NNL:{:.5f}\n"
-	       .format(ep, (time.time()-current_t)/60.,random_lr, CE_loss,SSE_loss,train_error,valid_error,test_error,
+	       .format(ep, (time.time()-current_t)/60.,random_lr, CE_loss,train_error,valid_error,test_error,
                                                 ECEtrain*100,MCEtrain*100,BRIERtrain,NNLtrain,
                                                 ECEvalid*100,MCEvalid*100,BRIERvalid,NNLvalid,
                                                 ECEtest*100,MCEtest*100,BRIERtest,NNLtest))
 
-	logging.info("|| Epoch {} took {:.1f} minutes LR: {:.4f} \tLossCE {:.5f} LossSSE {:.5f}\n"
+	logging.info("|| Epoch {} took {:.1f} minutes LR: {:.4f} \tLossCE {:.5f} \n"
 
                "| Accuracy statistics:  Err train:{:.3f}  Err valid:{:.3f}  Err test:{:.3f} \n"
                "| Calibration Train:  ECE:{:.5f} MCE:{:.5f} BRIER:{:.5f} NNL:{:.5f} \n"
@@ -160,7 +166,7 @@ for ep in range(num_epochs):
                "| Calibration valid: ECE:{:.5f} MCE:{:.3f} BRIER:{:.3f} NNL:{:.5f} \n"
 	      
                "| Calibration test: ECE:{:.5f} MCE:{:.5f} BRIER:{:.5f}  NNL:{:.5f}\n"
-	       .format(ep, (time.time()-current_t)/60.,random_lr, CE_loss,SSE_loss,train_error,valid_error,test_error,
+	       .format(ep, (time.time()-current_t)/60.,random_lr, CE_loss,train_error,valid_error,test_error,
                                                 ECEtrain*100,MCEtrain*100,BRIERtrain,NNLtrain,
                                                 ECEvalid*100,MCEvalid*100,BRIERvalid,NNLvalid,
                                                 ECEtest*100,MCEtest*100,BRIERtest,NNLtest))

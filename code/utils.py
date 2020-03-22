@@ -45,6 +45,7 @@ def parse_args_baseline():
 	parser.add_argument('--n_gpu', type=int,nargs='+',default=0,help='which gpu to use')
 	parser.add_argument('--dropout', type=float,required=True, choices=[0.0,0.3,0.2,0.5],help='dropout value')
 	parser.add_argument('--use_valid_set',default=1,choices=[0,1],type=int,help='Use a validation set')
+	parser.add_argument('--DEBUG',default=False,action='store_true',help='Debug mode')
 
 	args=parser.parse_args()
 	torch.cuda.set_device(args.n_gpu[0])
@@ -59,6 +60,7 @@ def parse_args_mixup():
 	parser.add_argument('--dropout', type=float,required=True, choices=[0.0,0.3,0.2,0.5],help='dropout value')
 	parser.add_argument('--use_valid_set',default=1,choices=[0,1],type=int,help='Use a validation set')
 	parser.add_argument('--mixup_coeff',default=1,type=float,help='mixup coefficient')
+	parser.add_argument('--DEBUG',default=False,action='store_true',help='Debug mode')
 
 	args=parser.parse_args()
 	torch.cuda.set_device(args.n_gpu[0])
@@ -92,6 +94,7 @@ def parse_args_KUMAR():
 	parser.add_argument('--dropout', type=float,required=True, choices=[0.0,0.3,0.2,0.5],help='dropout value')
 	parser.add_argument('--use_valid_set',default=1,choices=[0,1],type=int,help='Use a validation set')
 	parser.add_argument('--lamda',default=1,type=float,help='lamda coefficient')
+	parser.add_argument('--DEBUG',default=False,action='store_true',help='Debug mode')
 
 	args=parser.parse_args()
 	torch.cuda.set_device(args.n_gpu[0])
@@ -111,6 +114,8 @@ def parse_args_ARC_mixup():
 	parser.add_argument('--bins_for_train',nargs='+',default=None,required=False,help='A list containing how many bins do you want to use to partition your confidence line')
 	parser.add_argument('--lamda', type=float,required=True,help='hyperparameter controlling the importance of the Calibration cost')
 	parser.add_argument('--cost_over_mix_image', type=int,required=True,choices=[0,1],help='hyperparameter controlling wether the proposed cost applies to the mixup image or not')
+	parser.add_argument('--DEBUG',default=False,action='store_true',help='Debug mode')
+
 	args=parser.parse_args()
 	torch.cuda.set_device(args.n_gpu[0])
 	return args
