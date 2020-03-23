@@ -9,5 +9,5 @@ from .DenseNet import *
 from .ResNet import *
 from .MobileNetV2 import *
 from .distributed_Net import *
-from .KUMAR_net import *
+from .MMCE_net import *
 from .wrapped_Net import *

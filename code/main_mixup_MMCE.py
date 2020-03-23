@@ -16,26 +16,30 @@ torch.manual_seed(seed=1)
 torch.backends.cudnn.benchmark=True
 
 #mine
-from networks import wrappedNET
+from networks import MMCE_net 
 from data import load_data,batch_test,batch_train
 from network_config import load_network
-from utils import parse_args_baseline, compute_calibration_measures
+from utils import parse_args_MMCE_mixup, compute_calibration_measures
 from SGD import load_SGD_params
 from pytorch_library import  add_experiment_notfinished,add_nan_file,remove_experiment_notfinished,save_checkpoint
 
-######MAIN########
 
-#parse args
-args=parse_args_baseline()
+######MAIN########
+args=parse_args_MMCE_mixup()
 
 #create dataloaders
-train_loader,valid_loader,_,test_loader,data_stats=load_data(args,valid_set_is_replicated=False)
+data_train1,valid_loader,_,test_loader,data_stats=load_data(args,valid_set_is_replicated=False)
 total_train_data,total_test_data,total_valid_data,n_classes = data_stats
 
+data_train2,_,_,_,_=load_data(args,valid_set_is_replicated=False)
+total_train_data,total_test_data,total_valid_data,n_classes = data_stats
+
+## network
 pretrained = True if args.dataset =='birds' or args.dataset=='cars' else False #we use pretrained models on imagenet
 
 net,params=load_network(args.model_net,pretrained,args.n_gpu,n_classes=n_classes,dropout=args.dropout)
-net=wrappedNET(net)
+net=distributed_Net(net,args.n_gpu)
+net=MMCE_net(net,args.lamda)
 net.cuda()
 
 #usefull variables to monitor calibration error
@@ -51,9 +55,10 @@ bins_for_eval=15
 '''Directory to save models and logs'''
 
 best_test=1e+14
+proposed_cost_over_mixup='cost_over_mixup' if args.cost_over_mix_image else 'cost_over_separate_images'
 valid_name = './checkpoint/validation/' if args.use_valid_set else './checkpoint/test/'
-model_log_dir=os.path.join(valid_name,'baseline',args.dataset,args.model_net+"_drop"+str(args.dropout))
-model_log_dir+="/" # need this to solve small bug in my library
+model_log_dir=os.path.join(valid_name,'MMCE_mixup',"lamda_"+str(args.lamda),proposed_cost_over_mixup,args.dataset,args.model_net+"_drop"+str(args.dropout)+"_mixupcoeff"+str(args.mixup_coeff))
+model_log_dir+="/"
 
 try:
 	os.makedirs(model_log_dir)
@@ -62,11 +67,11 @@ except:
 		raise Exception("This directory already exists")
 
 add_experiment_notfinished(model_log_dir)
-logging.basicConfig(filename=os.path.join(model_log_dir,'train.log'),level=logging.INFO)
-logging.info("Logger for model: {} calibration error measured with {} bins".format(args.model_net+"_drop"+str(args.dropout),bins_for_eval))
-logging.info("Batch size train {} total train {} total valid {} total test {} ".format(batch_train,total_train_data,total_valid_data,total_test_data))
+logging.basicConfig(filename=model_log_dir+'train.log',level=logging.INFO)
+logging.info("Logger for model: {} calibration error measured with {} bins".format(args.model_net+"_drop"+str(args.dropout),bins))
+logging.info("Batch size train {} total train {} total valid {} total test {} mixup coeff {} cost over mixup image {}".format(batch_size,total_train_data,total_valid_data,total_test_data,args.mixup_coeff,proposed_cost_over_mixup))
 
-#Stochastic Gradient Descent parameters and stuff
+# Stochastic Gradient Descent parameters and stuff
 num_epochs,lr_init,wd,lr_scheduler = load_SGD_params(args.model_net,args.dataset)
 parameters_fc,parameters_conv=params
 
@@ -79,41 +84,66 @@ for ep in range(num_epochs):
 		SGD_conv=torch.optim.SGD(parameters_conv,lr=conv_lr,momentum=0.9,weight_decay=wd)	
 		SGD=[SGD_conv,SGD_fc]
 	else:
-		SGD=[SGD_fc]
-
-	CE_loss,MC_train,MC_test,MC_valid,total_test,total_valid,total_train,total_batch=[0.0]*8
+		SGD=[SGD_fc]	
+	SSE_loss,CE_loss,MC_train,MC_test,MC_valid,total_test,total_valid,total_train,total_batch=[0.0]*9
 	current_t=time.time()
 
+	for idx,((x1,t1),(x2,t2)) in enumerate(zip(data_train1,data_train2)):
+		x1,x2,t1,t2=x1.cuda(),x2.cuda(),t1.cuda(),t2.cuda()
 
-	for idx,(x,t) in enumerate(train_loader):
-
-		x,t=x.cuda(),t.cuda()
+		lam = numpy.random.beta(args.mixup_coeff, args.mixup_coeff)
+		x = lam*x1 + (1. - lam)*x2
 
 		out=net.forward(x)
+		NNL= lam*net.cost_LLH(out,t1) + (1. - lam)*net.cost_LLH(out,t2)
 
-		cost=net.cost(out,t)
+		if args.cost_over_mix_image:
+			SSE = lam*net.cost_MMCE(out,t1)
+			SSE += (1-lam)*net.cost_MMCE(out,t2)
+ 
+			COST = NNL+SSE
+			COST.backward()
 
-		CE_loss+=cost.data
+			cost=COST.data
+			CE_loss+=NNL.data
+			SSE_loss+=SSE.data
+		else: # this can be done more efficient by fowarding a bigger batch through the network. However this code aim at trying to limit as less as possible its usability
+			NNL.backward()
+			CE_loss+=NNL.data
+			cost = NNL.data
+			out=net.forward(x1)
+			SSE = net.cost_MMCEout,t1) 
+			SSE.backward()
+			SSE_loss+=SSE.data
+			cost+=SSE.data
 
-		cost.backward()
+			out=net.forward(x2)
+			SSE = net.cost_MMCE(out,t2)
+			SSE.backward()
+			SSE_loss+=SSE.data
+			cost+=SSE.data
+
 		for op in SGD:
 			op.step()
 			op.zero_grad()
 
-		MC_train+=net.classification_error(out,t).data
-		total_train+=t.size(0)
-		total_batch+=1
+		with torch.no_grad():
+			out=net.forward(x1)
 
-		#to monitor calibration error
-		predictions_train[idx*batch_train:idx*batch_train+batch_train,:]=out.data.cpu()
-		labels_train[idx*batch_train:idx*batch_train+batch_train]=t.data.cpu()
-		print('| Epoch [{}/{}] Iter[{:.0f}/{:.0f}]\t\t Loss: {:.3f}'.format(ep+1,num_epochs,total_batch,len(train_loader),cost.data),end="\r")
+			MC_train+=net.classification_error(out,t1).data
+			total_train+=t1.size(0)
+			total_batch+=1
+
+			#to monitor calibration error
+
+			predictions_train[idx*batch_train:idx*batch_train+batch_train,:]=out.data.cpu()
+			labels_train[idx*batch_train:idx*batch_train+batch_train]=t1.data.cpu()
+		print('| Epoch [{}/{}] Iter[{:.0f}/{:.0f}]\t\t Loss: {:.3f}'.format(ep+1,num_epochs,total_batch,len(data_train1),cost.data),end="\r")
 		
 	print("\n")
 	with torch.no_grad():
 
 		for idx,(x,t) in enumerate(valid_loader):
-
 			x,t=x.cuda(),t.cuda()
 			out=net.forward_test(x)
 			MC_valid+=net.classification_error(out,t)
@@ -138,39 +168,33 @@ for ep in range(num_epochs):
 		if args.use_valid_set:
 			ECEvalid,MCEvalid,BRIERvalid,NNLvalid=compute_calibration_measures(predictions_valid,labels_valid,apply_softmax=True,bins=bins_for_eval)
 
+
 		'''variables to display'''
 		train_error=float(MC_train)/total_train*100
 		valid_error=float(MC_valid)/total_valid*100 if args.use_valid_set else 0
 		test_error=float(MC_test)/total_test*100
 		CE_loss*=1/total_batch
+		SSE_loss*=1/total_batch
 
-
-	print("|| Epoch {} took {:.1f} minutes LR: {:.4f} \tLossCE {:.5f} \n"
-
-               "| Accuracy statistics:  Err train:{:.3f}  Err valid:{:.3f}  Err test:{:.3f} \n"
-
-               "| Calibration Train:  ECE:{:.5f} MCE:{:.5f} BRIER:{:.5f} NNL:{:.5f} \n"
-	      
-               "| Calibration valid: ECE:{:.5f} MCE:{:.3f} BRIER:{:.3f} NNL:{:.5f} \n"
-	       
-               "| Calibration test: ECE:{:.5f} MCE:{:.5f} BRIER:{:.5f}  NNL:{:.5f}\n"
-	       .format(ep, (time.time()-current_t)/60.,random_lr, CE_loss,train_error,valid_error,test_error,
-                                                ECEtrain*100,MCEtrain*100,BRIERtrain,NNLtrain,
-                                                ECEvalid*100,MCEvalid*100,BRIERvalid,NNLvalid,
-                                                ECEtest*100,MCEtest*100,BRIERtest,NNLtest))
-
-	logging.info("|| Epoch {} took {:.1f} minutes LR: {:.4f} \tLossCE {:.5f} \n"
-
+	print("|| Epoch {} took {:.1f} minutes \tLossCE {:.5f} LossKUMAR {:.5f}\n"
                "| Accuracy statistics:  Err train:{:.3f}  Err valid:{:.3f}  Err test:{:.3f} \n"
                "| Calibration Train:  ECE:{:.5f} MCE:{:.5f} BRIER:{:.5f} NNL:{:.5f} \n"
-	      
                "| Calibration valid: ECE:{:.5f} MCE:{:.3f} BRIER:{:.3f} NNL:{:.5f} \n"
-	      
                "| Calibration test: ECE:{:.5f} MCE:{:.5f} BRIER:{:.5f}  NNL:{:.5f}\n"
-	       .format(ep, (time.time()-current_t)/60.,random_lr, CE_loss,train_error,valid_error,test_error,
-                                                ECEtrain*100,MCEtrain*100,BRIERtrain,NNLtrain,
-                                                ECEvalid*100,MCEvalid*100,BRIERvalid,NNLvalid,
-                                                ECEtest*100,MCEtest*100,BRIERtest,NNLtest))
+		.format(ep, (time.time()-current_t)/60., CE_loss,SSE_loss, train_error,valid_error,test_error,
+                                                ECEtrain*100,MCEtrain,BRIERtrain,NNLtrain,
+                                                ECEvalid*100,MCEvalid,BRIERvalid,NNLvalid,
+                                                ECEtest*100,MCEtest,BRIERtest,NNLtest))
+                                                
+	logging.info("|| Epoch {} took {:.1f} minutes \tLossCE {:.5f} LossKUMAR {:.5f}\n"
+               "| Accuracy statistics:  Err train:{:.3f}  Err valid:{:.3f}  Err test:{:.3f} \n"
+               "| Calibration Train:  ECE:{:.5f} MCE:{:.5f} BRIER:{:.5f} NNL:{:.5f} \n"
+               "| Calibration valid: ECE:{:.5f} MCE:{:.3f} BRIER:{:.3f} NNL:{:.5f} \n"
+               "| Calibration test: ECE:{:.5f} MCE:{:.5f} BRIER:{:.5f}  NNL:{:.5f}\n"
+		.format(ep, (time.time()-current_t)/60., CE_loss,SSE_loss, train_error,valid_error,test_error,
+                                                ECEtrain*100,MCEtrain,BRIERtrain,NNLtrain,
+                                                ECEvalid*100,MCEvalid,BRIERvalid,NNLvalid,
+                                                ECEtest*100,MCEtest,BRIERtest,NNLtest))
 
 	if torch.isnan(cost):
 		add_nan_file(model_log_dir)
@@ -185,13 +209,13 @@ for ep in range(num_epochs):
 		)
 		best_test=MC_test
 
-
 save_checkpoint({
 		'state_dict' : net.state_dict()},
 		directory=model_log_dir,
 		is_best=False,
 		filename='model.pth'
 		)
+
 remove_experiment_notfinished(model_log_dir)
 exit(0)
 

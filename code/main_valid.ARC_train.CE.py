@@ -27,7 +27,7 @@ from pytorch_library import  add_experiment_notfinished,add_nan_file,remove_expe
 
 #parse args
 args=parse_args_ARC_mixup()
-
+args.use_valid_set = 1 # here is set by default
 #create dataloaders
 train_loader,valid_loader,untiled_valid_loader,test_loader,data_stats=load_data(args,valid_set_is_replicated=True)
 total_train_data,total_test_data,total_valid_data,n_classes = data_stats
@@ -61,8 +61,8 @@ bins_for_eval=15
 #to save the model and to perform logging
 best_test=1e+14
 bins_list_dir = "_".join(args.bins_for_train)
-valid_name = './checkpoint/validacion_for_arc/' if args.use_valid_set else './checkpoint/test/'
-model_log_dir = os.path.join(valid_name,'calibration_technique1/',calib_cost_type+"_"+str(calib_cost_index)+"_lamda_"+str(args.lamda)+"_bins_"+bins_list_dir,args.dataset,args.model_net+"_drop"+str(args.dropout))
+valid_name = './checkpoint/validacion_for_ARC/' if args.use_valid_set else './checkpoint/ARC/'
+model_log_dir = os.path.join(valid_name,calib_cost_type+"_"+str(calib_cost_index)+"_lamda_"+str(args.lamda)+"_bins_"+bins_list_dir,args.dataset,args.model_net+"_drop"+str(args.dropout))
 
 try:
 	os.makedirs(model_log_dir)

@@ -85,7 +85,7 @@ def parse_args_ARC():
 	return args
 
 
-def parse_args_KUMAR():
+def parse_args_MMCE():
 	parser = argparse.ArgumentParser(description='Confidence calibration for Deep Neural Networks in Pytorch. Enjoy!')
 	'''String Variables'''
 	parser.add_argument('--model_net', type=str,choices=['wideresnet-16x8','wideresnet-28x10','wideresnet-40x10','densenet-121','resnet-101','mobilenetv2','squeezenet1_1','resnet-18','resnet-50'],required=True,help='which model to train')

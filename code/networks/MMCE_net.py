@@ -3,10 +3,8 @@ if torch.__version__!='1.0.0':
         raise Exception('Pytorch version must be 1.0.0')
 import torch.nn as nn
 
-from utils_cost import accuracy_per_bin,average_confidence_per_bin,confidence_per_bin
-
 #the different calibration wrappers to the different newtorks
-class KUMAR_net(nn.Module):
+class MMCE_net(nn.Module):
 	def __init__(self, model_wrapped,lamda):
 		super(KUMAR_net, self).__init__()
 		self.model=model_wrapped
@@ -33,7 +31,7 @@ class KUMAR_net(nn.Module):
 		return torch.exp(-1.0*torch.abs(ri-rj)/0.4) #same kernel as Kumar et al
 
 
-	def cost_KUMAR(self,logit,t):
+	def cost_MMCE(self,logit,t):
 		probs=nn.functional.softmax(logit,dim=1)
 		confidence,target=probs.max(dim=1)
 

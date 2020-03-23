@@ -16,26 +16,29 @@ torch.manual_seed(seed=1)
 torch.backends.cudnn.benchmark=True
 
 #mine
-from networks import wrappedNET
+from networks import MMCE_net 
 from data import load_data,batch_test,batch_train
 from network_config import load_network
-from utils import parse_args_baseline, compute_calibration_measures
+from utils import parse_args_MMCE, compute_calibration_measures
 from SGD import load_SGD_params
 from pytorch_library import  add_experiment_notfinished,add_nan_file,remove_experiment_notfinished,save_checkpoint
 
-######MAIN########
 
-#parse args
-args=parse_args_baseline()
+######MAIN########
+args=parse_args_MMCE()
+
 
 #create dataloaders
 train_loader,valid_loader,_,test_loader,data_stats=load_data(args,valid_set_is_replicated=False)
 total_train_data,total_test_data,total_valid_data,n_classes = data_stats
 
+
+## network
 pretrained = True if args.dataset =='birds' or args.dataset=='cars' else False #we use pretrained models on imagenet
 
 net,params=load_network(args.model_net,pretrained,args.n_gpu,n_classes=n_classes,dropout=args.dropout)
-net=wrappedNET(net)
+net=distributed_Net(net,args.n_gpu)
+net=MMCE_net(net,args.lamda)
 net.cuda()
 
 #usefull variables to monitor calibration error
@@ -52,7 +55,7 @@ bins_for_eval=15
 
 best_test=1e+14
 valid_name = './checkpoint/validation/' if args.use_valid_set else './checkpoint/test/'
-model_log_dir=os.path.join(valid_name,'baseline',args.dataset,args.model_net+"_drop"+str(args.dropout))
+model_log_dir=os.path.join(valid_name,'baseline_mmce',+args.dataset,args.model_net+"_drop"+str(args.dropout)+"_lamda_"+str(args.lamda))
 model_log_dir+="/" # need this to solve small bug in my library
 
 try:
@@ -62,9 +65,9 @@ except:
 		raise Exception("This directory already exists")
 
 add_experiment_notfinished(model_log_dir)
-logging.basicConfig(filename=os.path.join(model_log_dir,'train.log'),level=logging.INFO)
-logging.info("Logger for model: {} calibration error measured with {} bins".format(args.model_net+"_drop"+str(args.dropout),bins_for_eval))
-logging.info("Batch size train {} total train {} total valid {} total test {} ".format(batch_train,total_train_data,total_valid_data,total_test_data))
+logging.basicConfig(filename=model_log_dir+'train.log',level=logging.INFO)
+logging.info("Baseline MMCE: Logger for model: {} calibration error measured with {} bins and lamda {}".format(args.model_net+"_drop"+str(args.dropout),bins,args.lamda))
+logging.info("Batch size train {} total train {} total valid {} total test {} ".format(batch_size,total_train_data,total_valid_data,total_test_data))
 
 #Stochastic Gradient Descent parameters and stuff
 num_epochs,lr_init,wd,lr_scheduler = load_SGD_params(args.model_net,args.dataset)
@@ -81,7 +84,7 @@ for ep in range(num_epochs):
 	else:
 		SGD=[SGD_fc]
 
-	CE_loss,MC_train,MC_test,MC_valid,total_test,total_valid,total_train,total_batch=[0.0]*8
+	CE_mmce,CE_loss,MC_train,MC_test,MC_valid,total_test,total_valid,total_train,total_batch=[0.0]*9
 	current_t=time.time()
 
 
@@ -91,9 +94,12 @@ for ep in range(num_epochs):
 
 		out=net.forward(x)
 
-		cost=net.cost(out,t)
+		cost_ce=net.cost_LLH(out,t)
+		cost_mmce=net.cost_MMCE(out,t)
+		cost=cost_mmce+cost_ce
 
-		CE_loss+=cost.data
+		CE_loss+=cost_ce.data
+		CE_mmce+=cost_mmce.data
 
 		cost.backward()
 		for op in SGD:
@@ -143,34 +149,31 @@ for ep in range(num_epochs):
 		valid_error=float(MC_valid)/total_valid*100 if args.use_valid_set else 0
 		test_error=float(MC_test)/total_test*100
 		CE_loss*=1/total_batch
+		CE_mmce*=1/total_batch
 
 
-	print("|| Epoch {} took {:.1f} minutes LR: {:.4f} \tLossCE {:.5f} \n"
-
-               "| Accuracy statistics:  Err train:{:.3f}  Err valid:{:.3f}  Err test:{:.3f} \n"
-
-               "| Calibration Train:  ECE:{:.5f} MCE:{:.5f} BRIER:{:.5f} NNL:{:.5f} \n"
-	      
-               "| Calibration valid: ECE:{:.5f} MCE:{:.3f} BRIER:{:.3f} NNL:{:.5f} \n"
-	       
-               "| Calibration test: ECE:{:.5f} MCE:{:.5f} BRIER:{:.5f}  NNL:{:.5f}\n"
-	       .format(ep, (time.time()-current_t)/60.,random_lr, CE_loss,train_error,valid_error,test_error,
-                                                ECEtrain*100,MCEtrain*100,BRIERtrain,NNLtrain,
-                                                ECEvalid*100,MCEvalid*100,BRIERvalid,NNLvalid,
-                                                ECEtest*100,MCEtest*100,BRIERtest,NNLtest))
-
-	logging.info("|| Epoch {} took {:.1f} minutes LR: {:.4f} \tLossCE {:.5f} \n"
-
+	print("|| Epoch {} took {:.1f} minutes \tLossCE {:.5f} LossKUMAR {:.5f}\n"
                "| Accuracy statistics:  Err train:{:.3f}  Err valid:{:.3f}  Err test:{:.3f} \n"
                "| Calibration Train:  ECE:{:.5f} MCE:{:.5f} BRIER:{:.5f} NNL:{:.5f} \n"
-	      
-               "| Calibration valid: ECE:{:.5f} MCE:{:.3f} BRIER:{:.3f} NNL:{:.5f} \n"
-	      
+               "| Calibration valid: ECE:{:.5f} MCE:{:.3f} BRIER:{:.3f} NNL:{:.5f} \n"	
                "| Calibration test: ECE:{:.5f} MCE:{:.5f} BRIER:{:.5f}  NNL:{:.5f}\n"
-	       .format(ep, (time.time()-current_t)/60.,random_lr, CE_loss,train_error,valid_error,test_error,
-                                                ECEtrain*100,MCEtrain*100,BRIERtrain,NNLtrain,
-                                                ECEvalid*100,MCEvalid*100,BRIERvalid,NNLvalid,
-                                                ECEtest*100,MCEtest*100,BRIERtest,NNLtest))
+
+		.format(ep, (time.time()-current_t)/60., CE_loss,CE_mmce,train_error,valid_error,test_error,
+                                                ECEtrain*100,MCEtrain,BRIERtrain,NNLtrain,
+                                                ECEvalid*100,MCEvalid,BRIERvalid,NNLvalid,
+                                                ECEtest*100,MCEtest,BRIERtest,NNLtest))
+
+	logging.info("|| Epoch {} took {:.1f} minutes \tLossCE {:.5f} LossKUMAR {:.5f}\n"
+               "| Accuracy statistics:  Err train:{:.3f}  Err valid:{:.3f}  Err test:{:.3f} \n"
+               "| Calibration Train:  ECE:{:.5f} MCE:{:.5f} BRIER:{:.5f} NNL:{:.5f} \n"
+               "| Calibration valid: ECE:{:.5f} MCE:{:.3f} BRIER:{:.3f} NNL:{:.5f} \n"	
+               "| Calibration test: ECE:{:.5f} MCE:{:.5f} BRIER:{:.5f}  NNL:{:.5f}\n"
+
+		.format(ep, (time.time()-current_t)/60., CE_loss,CE_mmce,train_error,valid_error,test_error,
+                                                ECEtrain*100,MCEtrain,BRIERtrain,NNLtrain,
+                                                ECEvalid*100,MCEvalid,BRIERvalid,NNLvalid,
+                                                ECEtest*100,MCEtest,BRIERtest,NNLtest))
+
 
 	if torch.isnan(cost):
 		add_nan_file(model_log_dir)
