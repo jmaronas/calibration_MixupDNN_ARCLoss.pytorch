@@ -59,7 +59,7 @@ class Bottleneck(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, block, num_blocks, num_classes=10,drop=0.0):
+    def __init__(self, block, num_blocks, num_classes,drop):
         super(ResNet, self).__init__()
         self.in_planes = 64
 
@@ -107,19 +107,19 @@ def resnet(depth,num_classes,drop):
 
 
 def ResNet18(num_classes,drop):
-    return ResNet(BasicBlock, [2,2,2,2],num_classes)
+    return ResNet(BasicBlock, [2,2,2,2],num_classes,drop)
 
 def ResNet34(num_classes,drop):
-    return ResNet(BasicBlock, [3,4,6,3],num_classes)
+    return ResNet(BasicBlock, [3,4,6,3],num_classes,drop)
 
 def ResNet50(num_classes,drop):
-    return ResNet(Bottleneck, [3,4,6,3],num_classes=num_classes)
+    return ResNet(Bottleneck, [3,4,6,3],num_classes,drop)
 
 def ResNet101(num_classes,drop):
-    return ResNet(Bottleneck, [3,4,23,3],num_classes)
+    return ResNet(Bottleneck, [3,4,23,3],num_classes,drop)
 
 def ResNet152(num_classes,drop):
-    return ResNet(Bottleneck, [3,8,36,3],num_classes)
+    return ResNet(Bottleneck, [3,8,36,3],num_classes,drop)
 
 
 
