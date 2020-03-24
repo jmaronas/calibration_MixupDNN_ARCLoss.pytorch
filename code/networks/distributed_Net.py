@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+## Author: Juan Maroñas PRHLT Research Center (jmaronas@prhlt.upv.es)
+
 
 import torch
 if torch.__version__!='1.0.0':

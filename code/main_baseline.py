@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+# Author: Juan Maroñas (jmaronasm@gmail.com) PRHLT Research Center
+
 #python
 import numpy
 import math

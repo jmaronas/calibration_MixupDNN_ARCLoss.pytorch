@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+# Author: Juan Maroñas (jmaronasm@gmail.com) PRHLT Research Center
+
 import torch
 import torch.utils.data as data
 from torchvision.datasets.folder import has_file_allowed_extension,IMG_EXTENSIONS,pil_loader,make_dataset

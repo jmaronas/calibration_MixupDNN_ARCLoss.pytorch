@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+# Author: Juan Maroñas (jmaronasm@gmail.com) PRHLT Research Center
+
 #python
 import numpy
 import math
@@ -37,7 +39,6 @@ total_train_data,total_test_data,total_valid_data,n_classes = data_stats
 pretrained = True if args.dataset =='birds' or args.dataset=='cars' else False #we use pretrained models on imagenet
 
 net,params=load_network(args.model_net,pretrained,args.n_gpu,n_classes=n_classes,dropout=args.dropout)
-net=distributed_Net(net,args.n_gpu)
 net=MMCE_net(net,args.lamda)
 net.cuda()
 
@@ -55,7 +56,7 @@ bins_for_eval=15
 
 best_test=1e+14
 valid_name = './checkpoint/validation/' if args.use_valid_set else './checkpoint/test/'
-model_log_dir=os.path.join(valid_name,'baseline_mmce',+args.dataset,args.model_net+"_drop"+str(args.dropout)+"_lamda_"+str(args.lamda))
+model_log_dir=os.path.join(valid_name,'baseline_mmce',args.dataset,args.model_net+"_drop"+str(args.dropout)+"_lamda_"+str(args.lamda))
 model_log_dir+="/" # need this to solve small bug in my library
 
 try:
@@ -66,8 +67,8 @@ except:
 
 add_experiment_notfinished(model_log_dir)
 logging.basicConfig(filename=model_log_dir+'train.log',level=logging.INFO)
-logging.info("Baseline MMCE: Logger for model: {} calibration error measured with {} bins and lamda {}".format(args.model_net+"_drop"+str(args.dropout),bins,args.lamda))
-logging.info("Batch size train {} total train {} total valid {} total test {} ".format(batch_size,total_train_data,total_valid_data,total_test_data))
+logging.info("Baseline MMCE: Logger for model: {} calibration error measured with {} bins and lamda {}".format(args.model_net+"_drop"+str(args.dropout),bins_for_eval,args.lamda))
+logging.info("Batch size train {} total train {} total valid {} total test {} ".format(batch_train,total_train_data,total_valid_data,total_test_data))
 
 #Stochastic Gradient Descent parameters and stuff
 num_epochs,lr_init,wd,lr_scheduler = load_SGD_params(args.model_net,args.dataset)

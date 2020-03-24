@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+# Author: Juan Maroñas (jmaronasm@gmail.com) PRHLT Research Center
+
 #python
 import numpy
 import math
@@ -27,7 +29,7 @@ from pytorch_library import  add_experiment_notfinished,add_nan_file,remove_expe
 args=parse_args_ARC()
 
 #create dataloaders
-train_loader,valid_loader,untiled_valid_loader,test_loader,data_stats=load_data(args,valid_set_is_replicated=True)
+train_loader,valid_loader,untiled_valid_loader,test_loader,data_stats=load_data(args,valid_set_is_replicated=False)
 total_train_data,total_test_data,total_valid_data,n_classes = data_stats
 
 #load the network
@@ -41,10 +43,11 @@ elif args.cost_type=='avg[square[conf_sub_acc]]':
 pretrained = True if args.dataset =='birds' or args.dataset=='cars' else False #we use pretrained models on imagenet
 net,params=load_network(args.model_net,pretrained,args.n_gpu,n_classes=n_classes,dropout=args.dropout)
 
-if len(args.bins_for_train)==1 and args.bins_for_train[0] = 1:                           
-        net=CalibIdea_NoBins(net,calib_cost_index,args.lamda)
+bins_for_train = [int(i) for i in args.bins_for_train]
+if len(bins_for_train)==1 and bins_for_train[0] == 1:                           
+	net=CalibIdea_NoBins(net,calib_cost_index,args.lamda)
 else:
-        net=CalibIdea_Bins(net,args.bins_for_train,calib_cost_index,args.lamda)          
+	net=CalibIdea_Bins(net,bins_for_train,calib_cost_index,args.lamda)          
 net.cuda()
 
 #usefull variables to monitor calibration error
@@ -59,7 +62,7 @@ bins_for_eval=15
 #to save the model and to perform logging
 best_test=1e+14
 bins_list_dir = "_".join(args.bins_for_train)                                            
-valid_name = './checkpoint/validacion/ARC/' if args.use_valid_set else './test/ARC/'
+valid_name = './checkpoint/validation/ARC/' if args.use_valid_set else './checkpoint/test/ARC/'
 model_log_dir = os.path.join(valid_name,calib_cost_type+"_"+str(calib_cost_index)+"_lamda_"+str(args.lamda)+"_bins_"+bins_list_dir,args.dataset,args.model_net+"_drop"+str(args.dropout))
 
 model_log_dir+="/" # need this to solve small bug in my library
@@ -76,7 +79,7 @@ logging.basicConfig(filename=model_log_dir+'train.log',level=logging.INFO)
 logging.info("ARC Loss")
 logging.info("Model: {} calibration error measured with {} bins".format(args.model_net+"_drop"+str(args.dropout),bins_for_eval))
 logging.info("Calib cost type {} with cost index {} bins for training {} lamda {}".format(calib_cost_type,calib_cost_index,args.bins_for_train,str(args.lamda)))
-logging.info("Batch size train {} total train {} total valid {} total test {} ".format(batch_size,total_train_data,total_valid_data,total_test_data))
+logging.info("Batch size train {} total train {} total valid {} total test {} ".format(batch_train,total_train_data,total_valid_data,total_test_data))
 
 #Stochastic Gradient Descent parameters and stuff
 num_epochs,lr_init,wd,lr_scheduler = load_SGD_params(args.model_net,args.dataset)

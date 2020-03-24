@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+# Author: Juan Maroñas (jmaronasm@gmail.com) PRHLT Research Center
+
 #python
 import numpy
 import math
@@ -45,10 +47,11 @@ elif args.cost_type=='avg[square[conf_sub_acc]]':
 pretrained = True if args.dataset =='birds' or args.dataset=='cars' else False #we use pretrained models on imagenet
 net,params=load_network(args.model_net,pretrained,args.n_gpu,n_classes=n_classes,dropout=args.dropout)
 
-if len(args.bins_for_train)==1 and args.bins_for_train[0] = 1:                           
-        net=CalibIdea_NoBins(net,calib_cost_index,args.lamda)
+bins_for_train = [int(i) for i in args.bins_for_train]
+if len(bins_for_train)==1 and bins_for_train[0] == 1:                           
+	net=CalibIdea_NoBins(net,calib_cost_index,args.lamda)
 else:
-        net=CalibIdea_Bins(net,args.bins_for_train,calib_cost_index,args.lamda)          
+	net=CalibIdea_Bins(net,bins_for_train,calib_cost_index,args.lamda)          
 net.cuda()
 
 #usefull variables to monitor calibration error
@@ -81,9 +84,9 @@ except:
 add_experiment_notfinished(model_log_dir)
 logging.basicConfig(filename=model_log_dir+'train.log',level=logging.INFO)
 logging.info("ARC Loss with Mixup")
-logging.info("Logger for model: {} calibration error measured with {} bins".format(args.model_net+"_drop"+str(args.dropout),bins))
+logging.info("Logger for model: {} calibration error measured with {} bins".format(args.model_net+"_drop"+str(args.dropout),bins_for_eval))
 logging.info("Calib cost type {} with cost index {} bins for training {} lamda {}".format(calib_cost_type,calib_cost_index,bins_for_train,str(args.lamda)))
-logging.info("Batch size train {} total train {} total valid {} total test {} mixup coeff {} cost over mixup image {}".format(batch_size,total_train_data,total_valid_data,total_test_data,args.mixup_coeff,proposed_cost_over_mixup))
+logging.info("Batch size train {} total train {} total valid {} total test {} mixup coeff {} cost over mixup image {}".format(batch_train,total_train_data,total_valid_data,total_test_data,args.mixup_coeff,proposed_cost_over_mixup))
 
 #Stochastic Gradient Descent parameters and stuff
 num_epochs,lr_init,wd,lr_scheduler = load_SGD_params(args.model_net,args.dataset)
@@ -170,6 +173,14 @@ for ep in range(num_epochs):
 			total_test+=t.size(0)
 			predictions_test[idx*batch_test:idx*batch_test+batch_test,:]=out.data.cpu()
 			labels_test[idx*batch_test:idx*batch_test+batch_test]=t.data.cpu()
+		'''
+		Monitoring Calibration Error
+		'''
+		ECEtrain,MCEtrain,BRIERtrain,NNLtrain=compute_calibration_measures(predictions_train,labels_train,apply_softmax=True,bins=bins_for_eval)
+		ECEtest,MCEtest,BRIERtest,NNLtest=compute_calibration_measures(predictions_test,labels_test,apply_softmax=True,bins=bins_for_eval)
+		ECEvalid,MCEvalid,BRIERvalid,NNLvalid=[0.0]*4
+		if args.use_valid_set:
+			ECEvalid,MCEvalid,BRIERvalid,NNLvalid=compute_calibration_measures(predictions_valid,labels_valid,apply_softmax=True,bins=bins_for_eval)
 
 
 		'''variables to display'''

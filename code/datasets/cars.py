@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+# Author: Juan Maroñas (jmaronasm@gmail.com) PRHLT Research Center
+
 '''
 Standford cars dataset https://ai.stanford.edu/~jkrause/cars/car_dataset.html
 

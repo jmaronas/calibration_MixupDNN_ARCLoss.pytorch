@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+# Author: Juan Maroñas (jmaronasm@gmail.com) PRHLT Research Center
+
 #python
 import numpy
 import math
@@ -38,7 +40,6 @@ total_train_data,total_test_data,total_valid_data,n_classes = data_stats
 pretrained = True if args.dataset =='birds' or args.dataset=='cars' else False #we use pretrained models on imagenet
 
 net,params=load_network(args.model_net,pretrained,args.n_gpu,n_classes=n_classes,dropout=args.dropout)
-net=distributed_Net(net,args.n_gpu)
 net=MMCE_net(net,args.lamda)
 net.cuda()
 
@@ -68,8 +69,8 @@ except:
 
 add_experiment_notfinished(model_log_dir)
 logging.basicConfig(filename=model_log_dir+'train.log',level=logging.INFO)
-logging.info("Logger for model: {} calibration error measured with {} bins".format(args.model_net+"_drop"+str(args.dropout),bins))
-logging.info("Batch size train {} total train {} total valid {} total test {} mixup coeff {} cost over mixup image {}".format(batch_size,total_train_data,total_valid_data,total_test_data,args.mixup_coeff,proposed_cost_over_mixup))
+logging.info("Logger for model: {} calibration error measured with {} bins".format(args.model_net+"_drop"+str(args.dropout),bins_for_eval))
+logging.info("Batch size train {} total train {} total valid {} total test {} mixup coeff {} cost over mixup image {}".format(batch_train,total_train_data,total_valid_data,total_test_data,args.mixup_coeff,proposed_cost_over_mixup))
 
 # Stochastic Gradient Descent parameters and stuff
 num_epochs,lr_init,wd,lr_scheduler = load_SGD_params(args.model_net,args.dataset)
@@ -112,7 +113,7 @@ for ep in range(num_epochs):
 			CE_loss+=NNL.data
 			cost = NNL.data
 			out=net.forward(x1)
-			SSE = net.cost_MMCEout,t1) 
+			SSE = net.cost_MMCE(out,t1) 
 			SSE.backward()
 			SSE_loss+=SSE.data
 			cost+=SSE.data

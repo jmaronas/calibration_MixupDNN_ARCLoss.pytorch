@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+## Author: Juan Maroñas PRHLT Research Center (jmaronas@prhlt.upv.es)
+## Kernel embedding calibration 
+
+
 import torch
 if torch.__version__!='1.0.0':
         raise Exception('Pytorch version must be 1.0.0')
@@ -6,7 +11,7 @@ import torch.nn as nn
 #the different calibration wrappers to the different newtorks
 class MMCE_net(nn.Module):
 	def __init__(self, model_wrapped,lamda):
-		super(KUMAR_net, self).__init__()
+		super(MMCE_net, self).__init__()
 		self.model=model_wrapped
 		self.lamda=lamda
 	def forward(self,x):

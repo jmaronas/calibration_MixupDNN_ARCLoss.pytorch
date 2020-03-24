@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 ## Author: Juan Maroñas PRHLT Research Center (jmaronas@prhlt.upv.es)
 ## Calibration wrappers
 
@@ -11,7 +12,7 @@ from utils_cost import accuracy_per_bin,average_confidence_per_bin,confidence_pe
 # Only M=1
 class CalibIdea_NoBins(nn.Module):
 	def __init__(self, model_wrapped,calib_cost_index,lamda):
-		super(CalibIdea1, self).__init__()
+		super(CalibIdea_NoBins, self).__init__()
 		self.model=model_wrapped
 		self.calib_cost_index=calib_cost_index
 		self.lamda=lamda
@@ -63,7 +64,7 @@ class CalibIdea_NoBins(nn.Module):
 # Allow to select M \neq 1
 class CalibIdea_Bins(nn.Module):
 	def __init__(self, model_wrapped,bins_for_train,calib_cost_index,lamda):
-		super(CalibIdea2, self).__init__()
+		super(CalibIdea_Bins, self).__init__()
 		self.model=model_wrapped
 		self.bins_for_train=bins_for_train
 		self.calib_cost_index=calib_cost_index

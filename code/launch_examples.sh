@@ -1,41 +1,48 @@
-#python main_baseline.py  --model_net resnet-18 --dataset cifar10 --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 --DEBUG
+source /usr/local/anaconda3/bin/activate ~/my_envs/ARD_python3.7_pytorch1.0.0_cuda100/
 
-python main_baseline_mixup.py  --model_net resnet-18 --dataset cifar10 --mixup_coeff 1.0 --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 --DEBUG
+## Baseline
 
-exit
-modelall=('densenet-121')
-dropout=(0.0)
-dataset=( "cifar100" ) #cifar10 cifar100 birds cars svhn
-lamda=( "0.5" "1" "2" "4" "8")
-n_gpu="0 1"
+ python main_baseline.py        --model_net resnet-18 --dataset cifar10 --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 
+ python main_baseline_mixup.py  --model_net resnet-18 --dataset cifar10 --mixup_coeff 1.0 --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 
 
-for model in "${modelall[@]}"
-do
-  for drop in "${dropout[@]}"
-  do
-    for data in "${dataset[@]}"
-    do
+ python main_baseline.py        --model_net resnet-18 --dataset birds --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 
+ python main_baseline_mixup.py  --model_net resnet-18 --dataset birds --mixup_coeff 0.4 --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 
 
-      for lam in "${lamda[@]}"
-      do
-	#costtype="avg[square[conf_sub_acc]]"
+ python main_baseline.py        --model_net resnet-18 --dataset birds --n_gpu 0 1 --dropout 0.5 --use_valid_set 0 
+ python main_baseline_mixup.py  --model_net resnet-18 --dataset birds --mixup_coeff 0.4 --n_gpu 0 1 --dropout 0.5 --use_valid_set 0 
 
-         #python ../main_calibracion1_valid.arc_train.ce.py --model_net $model --dropout $drop --dataset $data --n_gpu $n_gpu --cost_type $costtype --lamda $lam 
+ python main_baseline.py        --model_net resnet-18 --dataset cifar100 --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 
+ python main_baseline_mixup.py  --model_net resnet-18 --dataset cifar100 --mixup_coeff 1.0 --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 
 
-    	 costtype="square[avgconf_sub_acc]"
-
-         python ../main_calibracion1_valid.arc_train.ce.py --model_net $model --dropout $drop --dataset $data --n_gpu $n_gpu --cost_type $costtype --lamda $lam 
-
-         python ../main_calibracion2_valid.arc_train.ce.py --model_net $model --dropout $drop --dataset $data --n_gpu $n_gpu --cost_type $costtype --lamda $lam  --bins_for_train 5 
+ python main_baseline.py        --model_net resnet-18 --dataset cars --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 
+ python main_baseline_mixup.py  --model_net resnet-18 --dataset cars --mixup_coeff 0.4 --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 
 
 
+## MMCE
+
+ python main_baseline_MMCE.py  --model_net resnet-18 --dataset cifar10 --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 --lamda 0.5
+ python main_baseline_MMCE.py  --model_net resnet-18 --dataset birds --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 --lamda 0.5 
 
 
+## MMCE + MIXUP
 
-      done
-    done
-  done
-done
+ python main_mixup_MMCE.py     --model_net resnet-18 --dataset cifar10 --mixup_coeff 1.0 --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 --lamda 0.1 --cost_over_mix_image 0 
+ python main_mixup_MMCE.py     --model_net resnet-18 --dataset birds --mixup_coeff 0.4 --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 --lamda 0.3 --cost_over_mix_image 0 
 
 
+## ARC
+
+ python main_baseline_ARC.py  --model_net resnet-18 --dataset cifar10 --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 --cost_type 'square[avgconf_sub_acc]' --bins_for_train 1 --lamda 1.0  
+ python main_baseline_ARC.py  --model_net resnet-18 --dataset cifar10 --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 --cost_type 'square[avgconf_sub_acc]' --bins_for_train 5 15 --lamda 1.0  
+ python main_baseline_ARC.py  --model_net resnet-18 --dataset cifar10 --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 --cost_type 'avg[square[conf_sub_acc]]' --bins_for_train 1 --lamda 1.0  --DEBUG
+ python main_baseline_ARC.py  --model_net resnet-18 --dataset cifar10 --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 --cost_type 'avg[square[conf_sub_acc]]' --bins_for_train 5 15 --lamda 1.0  --DEBUG
+
+
+## ARC+MIXUP
+
+ python main_mixup_ARC.py     --model_net resnet-18 --dataset cifar10 --mixup_coeff 1.0 --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 --cost_type 'square[avgconf_sub_acc]' --lamda 4 --bins_for_train 1 --cost_over_mix_image 0 
+ python main_mixup_ARC.py     --model_net resnet-18 --dataset cifar100 --mixup_coeff 1.0 --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 --cost_type 'square[avgconf_sub_acc]' --lamda 1.0 --bins_for_train 5 15 30 --cost_over_mix_image 0 
+ python main_mixup_ARC.py     --model_net resnet-18 --dataset cars --mixup_coeff 0.4 --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 --cost_type 'avg[square[conf_sub_acc]]' --lamda 46.0 --bins_for_train 5 15 30 --cost_over_mix_image 0 
+ python main_mixup_ARC.py     --model_net resnet-18 --dataset birds --mixup_coeff 0.4 --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 --cost_type 'square[avgconf_sub_acc]' --lamda 30.0 --bins_for_train 5 15 30 --cost_over_mix_image 1
+ python main_mixup_ARC.py     --model_net resnet-18 --dataset birds --mixup_coeff 0.4 --n_gpu 0 1 --dropout 0.5 --use_valid_set 0 --cost_type 'avg[square[conf_sub_acc]]' --lamda 20.0 --bins_for_train 15 --cost_over_mix_image 1
 

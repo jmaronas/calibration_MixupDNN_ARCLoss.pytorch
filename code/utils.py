@@ -132,6 +132,8 @@ def parse_args_MMCE_mixup():
 	parser.add_argument('--lamda',default=1,type=float,help='lamda coefficient')
 	parser.add_argument('--mixup_coeff',default=1,type=float,help='mixup coefficient')
 	parser.add_argument('--cost_over_mix_image', type=int,required=True,choices=[0,1],help='hyperparameter controlling wether the proposed cost applies to the mixup image or not')
+
+	parser.add_argument('--DEBUG',default=False,action='store_true',help='Debug mode')
 	args=parser.parse_args()
 	torch.cuda.set_device(args.n_gpu[0])
 	return args
