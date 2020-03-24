@@ -34,8 +34,8 @@ source /usr/local/anaconda3/bin/activate ~/my_envs/ARD_python3.7_pytorch1.0.0_cu
 
  python main_baseline_ARC.py  --model_net resnet-18 --dataset cifar10 --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 --cost_type 'square[avgconf_sub_acc]' --bins_for_train 1 --lamda 1.0  
  python main_baseline_ARC.py  --model_net resnet-18 --dataset cifar10 --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 --cost_type 'square[avgconf_sub_acc]' --bins_for_train 5 15 --lamda 1.0  
- python main_baseline_ARC.py  --model_net resnet-18 --dataset cifar10 --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 --cost_type 'avg[square[conf_sub_acc]]' --bins_for_train 1 --lamda 1.0  --DEBUG
- python main_baseline_ARC.py  --model_net resnet-18 --dataset cifar10 --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 --cost_type 'avg[square[conf_sub_acc]]' --bins_for_train 5 15 --lamda 1.0  --DEBUG
+ python main_baseline_ARC.py  --model_net resnet-18 --dataset cifar10 --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 --cost_type 'avg[square[conf_sub_acc]]' --bins_for_train 1 --lamda 1.0 
+ python main_baseline_ARC.py  --model_net resnet-18 --dataset cifar10 --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 --cost_type 'avg[square[conf_sub_acc]]' --bins_for_train 5 15 --lamda 1.0  
 
 
 ## ARC+MIXUP
@@ -46,3 +46,10 @@ source /usr/local/anaconda3/bin/activate ~/my_envs/ARD_python3.7_pytorch1.0.0_cu
  python main_mixup_ARC.py     --model_net resnet-18 --dataset birds --mixup_coeff 0.4 --n_gpu 0 1 --dropout 0.0 --use_valid_set 0 --cost_type 'square[avgconf_sub_acc]' --lamda 30.0 --bins_for_train 5 15 30 --cost_over_mix_image 1
  python main_mixup_ARC.py     --model_net resnet-18 --dataset birds --mixup_coeff 0.4 --n_gpu 0 1 --dropout 0.5 --use_valid_set 0 --cost_type 'avg[square[conf_sub_acc]]' --lamda 20.0 --bins_for_train 15 --cost_over_mix_image 1
 
+## ARC over validation set and CE over train
+
+ python main_valid.ARC_train.CE.py --model_net resnet-18 --dataset cifar10 --n_gpu 0 1 --dropout 0.0 --use_valid_set 1 --cost_type 'square[avgconf_sub_acc]' --lamda 0.0 --bins_for_train 1 
+ python main_valid.ARC_train.CE.py --model_net resnet-18 --dataset cifar10 --n_gpu 0 1 --dropout 0.0 --use_valid_set 1 --cost_type 'square[avgconf_sub_acc]' --lamda 2.0 --bins_for_train 1 
+ python main_valid.ARC_train.CE.py --model_net resnet-18 --dataset cifar10 --n_gpu 0 1 --dropout 0.0 --use_valid_set 1 --cost_type 'square[avgconf_sub_acc]' --lamda 4.0 --bins_for_train 1 
+ python main_valid.ARC_train.CE.py --model_net resnet-18 --dataset cifar10 --n_gpu 0 1 --dropout 0.0 --use_valid_set 1 --cost_type 'square[avgconf_sub_acc]' --lamda 8.0 --bins_for_train 1 
+ python main_valid.ARC_train.CE.py --model_net resnet-18 --dataset cifar10 --n_gpu 0 1 --dropout 0.0 --use_valid_set 1 --cost_type 'square[avgconf_sub_acc]' --lamda 16.0 --bins_for_train 1 

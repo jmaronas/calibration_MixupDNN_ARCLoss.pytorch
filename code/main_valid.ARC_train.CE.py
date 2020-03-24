@@ -19,14 +19,14 @@ torch.backends.cudnn.benchmark=True
 from networks import CalibIdea_NoBins,CalibIdea_Bins
 from data import load_data,batch_test,batch_train
 from network_config import load_network
-from utils import parse_args_ARC_mixup, compute_calibration_measures
+from utils import parse_args_ARC, compute_calibration_measures
 from SGD import load_SGD_params
 from pytorch_library import  add_experiment_notfinished,add_nan_file,remove_experiment_notfinished,save_checkpoint
 
 ######MAIN########
 
 #parse args
-args=parse_args_ARC_mixup()
+args=parse_args_ARC()
 args.use_valid_set = 1 # here is set by default
 #create dataloaders
 train_loader,valid_loader,untiled_valid_loader,test_loader,data_stats=load_data(args,valid_set_is_replicated=True)
@@ -43,10 +43,11 @@ elif args.cost_type=='avg[square[conf_sub_acc]]':
 pretrained = True if args.dataset =='birds' or args.dataset=='cars' else False #we use pretrained models on imagenet
 net,params=load_network(args.model_net,pretrained,args.n_gpu,n_classes=n_classes,dropout=args.dropout)
 
-if len(args.bins_for_train)==1 and args.bins_for_train[0] = 1:
+bins_for_train = [int(i) for i in args.bins_for_train]
+if len(bins_for_train)==1 and bins_for_train[0] == 1:
 	net=CalibIdea_NoBins(net,calib_cost_index,args.lamda)
 else:
-	net=CalibIdea_Bins(net,args.bins_for_train,calib_cost_index,args.lamda)
+	net=CalibIdea_Bins(net,bins_for_train,calib_cost_index,args.lamda)
 net.cuda()
 
 #usefull variables to monitor calibration error
@@ -63,6 +64,7 @@ best_test=1e+14
 bins_list_dir = "_".join(args.bins_for_train)
 valid_name = './checkpoint/validacion_for_ARC/' if args.use_valid_set else './checkpoint/ARC/'
 model_log_dir = os.path.join(valid_name,calib_cost_type+"_"+str(calib_cost_index)+"_lamda_"+str(args.lamda)+"_bins_"+bins_list_dir,args.dataset,args.model_net+"_drop"+str(args.dropout))
+model_log_dir += "/"
 
 try:
 	os.makedirs(model_log_dir)
@@ -143,9 +145,9 @@ for ep in range(num_epochs):
 		'''
 		Monitoring Calibration Error
 		'''
-		ECEtrain,MCEtrain,BRIERtrain,NNLtrain,all_stats_train,bins_stats_train=compute_calibration_measures(predictions_train,labels_train,apply_softmax=True,bins=bins_for_eval)
-		ECEtest,MCEtest,BRIERtest,NNLtest,all_stats_test,bins_stats_test=compute_calibration_measures(predictions_test,labels_test,apply_softmax=True,bins=bins_for_eval)
-		ECEvalid,MCEvalid,BRIERvalid,NNLvalid,all_stats_valid,bins_stats_valid=compute_calibration_measures(predictions_valid,labels_valid,apply_softmax=True,bins=bins_for_eval)
+		ECEtrain,MCEtrain,BRIERtrain,NNLtrain=compute_calibration_measures(predictions_train,labels_train,apply_softmax=True,bins=bins_for_eval)
+		ECEtest,MCEtest,BRIERtest,NNLtest=compute_calibration_measures(predictions_test,labels_test,apply_softmax=True,bins=bins_for_eval)
+		ECEvalid,MCEvalid,BRIERvalid,NNLvalid=compute_calibration_measures(predictions_valid,labels_valid,apply_softmax=True,bins=bins_for_eval)
 
 		'''variables to display'''
 		train_error=float(MC_train)/total_train*100
