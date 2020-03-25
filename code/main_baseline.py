@@ -31,7 +31,7 @@ from pytorch_library import  add_experiment_notfinished,add_nan_file,remove_expe
 args=parse_args_baseline()
 
 #create dataloaders
-train_loader,valid_loader,_,test_loader,data_stats=load_data(args,valid_set_is_replicated=False)
+train_loader,_,valid_loader,test_loader,data_stats=load_data(args,valid_set_is_replicated=False)
 total_train_data,total_test_data,total_valid_data,n_classes = data_stats
 
 pretrained = True if args.dataset =='birds' or args.dataset=='cars' else False #we use pretrained models on imagenet

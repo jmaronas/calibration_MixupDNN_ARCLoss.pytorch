@@ -29,7 +29,7 @@ from pytorch_library import  add_experiment_notfinished,add_nan_file,remove_expe
 args=parse_args_ARC()
 
 #create dataloaders
-train_loader,valid_loader,untiled_valid_loader,test_loader,data_stats=load_data(args,valid_set_is_replicated=False)
+train_loader,_,valid_loader,test_loader,data_stats=load_data(args,valid_set_is_replicated=False)
 total_train_data,total_test_data,total_valid_data,n_classes = data_stats
 
 #load the network
@@ -58,6 +58,7 @@ labels_valid=torch.from_numpy(numpy.zeros((total_valid_data,),dtype='int64'))
 predictions_test=torch.from_numpy(numpy.zeros((total_test_data,n_classes),dtype='float32'))
 labels_test=torch.from_numpy(numpy.zeros((total_test_data,),dtype='int64'))
 bins_for_eval=15
+
 
 #to save the model and to perform logging
 best_test=1e+14
