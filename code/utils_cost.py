@@ -14,7 +14,6 @@ def accuracy_per_bin(predicted,real_tag,n_bins=15,apply_softmax=True):
 
 	accuracy,index = torch.max(predicted_prob,1)
 	selected_label=index.long()==real_tag
-
 	prob=torch.from_numpy(numpy.linspace(0,1,n_bins+1)).float().cuda()
 	acc=torch.from_numpy(numpy.linspace(0,1,n_bins+1)).float().cuda()
 	total_data = len(accuracy)

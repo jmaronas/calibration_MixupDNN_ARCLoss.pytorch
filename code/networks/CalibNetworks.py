@@ -97,12 +97,16 @@ class CalibIdea_Bins(nn.Module):
 				if s!=0.0:
 					aux_cost+=self.calib_cost(a,c,c_per_bin,s,self.calib_cost_index)
 
+			tot_samples = float(sum(samples_per_bin))
+
 			if tot_samples!=0:		
 				aux_cost*=1/tot_samples
 
 			COST+=aux_cost
 
+
 		COST*=self.lamda/float(len(self.bins_for_train))
+
 		return COST
                 
 
@@ -128,6 +132,7 @@ class CalibIdea_Bins(nn.Module):
 				if s!=0.0:
 					aux_cost+=self.calib_cost(a,c,c_per_bin,s,self.calib_cost_index)
 
+			tot_samples = float(sum(samples_per_bin))
 			if tot_samples!=0:		
 				aux_cost*=1/tot_samples
 
