@@ -42,7 +42,7 @@ def return_network(network_name,pretrained=True,n_classes=None,dropout=None):
 	
 	else:
 		if 'wideresnet'==network_name.split("-")[0]:
-			depth,widenfactor=network_name[network_name]
+			depth,widenfactor=networks[network_name]
 			net=Wide_ResNet(depth,widenfactor,dropout,n_classes)
 		if 'densenet'==network_name.split("-")[0]:
 			depth=networks[network_name]
