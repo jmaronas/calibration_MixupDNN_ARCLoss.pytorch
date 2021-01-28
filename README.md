@@ -1,4 +1,4 @@
-# Improving Calibration in Mixup-trained Deep Neural Networks through Confidence Based Loss Functions
+# On Calibration of Mixup Training for Deep Neural Networks
 This repository contains the code and additional details for the work analyzing and improving calibration properties of Mixup which is available here [https://arxiv.org/abs/2003.09946](https://arxiv.org/abs/2003.09946) . Details on the individual values of all the models trained in this work, plus specific hyperparameters of the proposed loss function can be found in [this file](./SSPR_appendix_Github.pdf) attached in this repository.. Details on specific hyperparameters such as weight decay and so on are provided in the code.
 
 The topologies of the networks implemented and their hyperparameters are taken from these three Githubs:
